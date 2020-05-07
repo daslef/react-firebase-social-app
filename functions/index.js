@@ -1,11 +1,23 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const app = require('express')();
 
 admin.initializeApp();
-let db = admin.firestore();
 
-const express = require('express');
-const app = express();
+const firebaseConfig = {
+  apiKey: "AIzaSyC0ZRR66PK_uIg8kR31F8sHzIt7M8otvNQ",
+  authDomain: "react-social-b1135.firebaseapp.com",
+  databaseURL: "https://react-social-b1135.firebaseio.com",
+  projectId: "react-social-b1135",
+  storageBucket: "react-social-b1135.appspot.com",
+  messagingSenderId: "200471444835",
+  appId: "1:200471444835:web:2e86ef249fae3de2cd2756",
+  measurementId: "G-DL8ZMP6ES5"
+};
+
+const firebase = require('firebase');
+firebase.initializeApp(firebaseConfig);
+const db = admin.firestore()
 
 
 app.get('/screams', (request, response) => {
@@ -44,6 +56,25 @@ app.post('/scream', (request, response) => {
     .add(newScream)
     .then(doc => response.json(`Document ${doc.id} created successfully`))
     .catch(err => response.status(500).json({error: 'Something went wrong'}))
+});
+
+
+app.post('/signup', (request, response) => {
+  const newUser = {
+    email: request.body.email,
+    password: request.body.password,
+    confirmPassword: request.body.confirmPassword,
+    handle: request.body.handle,
+  }
+
+  firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
+    .then(data => {
+      return response.status(201).json({message: `user ${data.user.uid} signed up succesfully`})
+    })
+    .catch(err => {
+      console.log(err)
+      return response.status(500).json({error: err.code})
+    })
 });
 
 
