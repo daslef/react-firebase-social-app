@@ -60,6 +60,7 @@ app.post('/scream', (request, response) => {
 
 
 app.post('/signup', (request, response) => {
+
   const newUser = {
     email: request.body.email,
     password: request.body.password,
@@ -67,12 +68,38 @@ app.post('/signup', (request, response) => {
     handle: request.body.handle,
   }
 
-  firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
+  let token, userId;
+
+  db.doc(`/users/${newUser.handle}`).get()
+    .then(doc => {
+      if (doc.exists) {
+        return response.status(400).json({handle: 'this handle is already taken'})
+      } else {
+        return  firebase.auth().createUserWithEmailAndPassword(newUser.email, newUser.password)
+      }
+    })
     .then(data => {
-      return response.status(201).json({message: `user ${data.user.uid} signed up succesfully`})
+      userId = data.user.uid
+      return data.user.getIdToken()
+    })
+    .then(idToken => {
+      token = idToken
+      const userCredentials= {
+        handle: newUser.handle,
+        email: newUser.email,
+        createdAt: new Date().toISOString(),
+        userId
+      }
+      return db.doc(`/users/${userCredentials.handle}`).set(userCredentials)
+    })
+    .then(() => {
+      return response.status(201).json({ token }); 
     })
     .catch(err => {
       console.log(err)
+      if (err.code === "auth/email-already-in-use") {
+        return response.status(400).json({ email: 'This email is already used'})
+      }
       return response.status(500).json({error: err.code})
     })
 });
