@@ -1,20 +1,26 @@
-const express = require('express');
-const app = express();
-
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
-let db = admin.firestore();
 admin.initializeApp();
+let db = admin.firestore();
+
+const express = require('express');
+const app = express();
 
 
 app.get('/screams', (request, response) => {
   let screams = []
   db
     .collection('screams')
+    .orderBy('createdAt', 'desc')
     .get()
     .then(data => {
-      data.forEach(doc => screams.push(doc.data()))
+      data.forEach(doc => screams.push({
+        screamId: doc.id,
+        body: doc.data().body,
+        userHandle: doc.data().userHandle,
+        createdAt: doc.data().createdAt
+      }))
       return response.json(screams)
     })
     .catch(err => console.log(err))
@@ -41,4 +47,4 @@ app.post('/scream', (request, response) => {
 });
 
 
-exports.api = functions.https.onRequest(app);
+exports.api = functions.region('europe-west1').https.onRequest(app);
