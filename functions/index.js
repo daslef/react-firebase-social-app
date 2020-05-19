@@ -21,6 +21,72 @@ firebase.initializeApp(firebaseConfig);
 const db = admin.firestore()
 
 
+
+const isEmail = (email) => {
+  const regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+  return email.match(regex)
+}
+
+const isEmpty = (string) => string.trim() === ''
+
+
+const FBAuth = (req, res, next) => {
+  let idToken;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer ')
+  ) {
+    idToken = req.headers.authorization.split('Bearer ')[1];
+  } else {
+    console.error('No token found');
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  admin
+    .auth()
+    .verifyIdToken(idToken)
+    .then((decodedToken) => {
+      req.user = decodedToken;
+      console.log(decodedToken);
+      return db
+        .collection('users')
+        .where('userId', '==', req.user.uid)
+        .limit(1)
+        .get();
+    })
+    .then((data) => {
+      req.user.handle = data.docs[0].data().handle;
+      return next();
+    })
+    .catch((err) => {
+      console.error('Error while verifying token ', err);
+      return res.status(403).json(err);
+    });
+};
+
+app.post('/scream', FBAuth, (req, res) => {
+  if (req.body.body.trim() === '') {
+    return res.status(400).json({ body: 'Body must not be empty' });
+  }
+
+  const newScream = {
+    body: req.body.body,
+    userHandle: req.user.handle,
+    createdAt: new Date().toISOString()
+  };
+
+  db.collection('screams')
+    .add(newScream)
+    .then((doc) => {
+      res.json({ message: `document ${doc.id} created successfully` });
+    })
+    .catch((err) => {
+      res.status(500).json({ error: 'something went wrong' });
+      console.error(err);
+    });
+});
+
+
 app.get('/screams', (request, response) => {
   let screams = []
   db
@@ -38,34 +104,6 @@ app.get('/screams', (request, response) => {
     })
     .catch(err => console.log(err))
 });
-
-
-app.post('/scream', (request, response) => {
-  
-  if (request.method !== 'POST') {
-    return response.status(400).json({error: 'Method is not allowed'})
-  }
-
-  const newScream = {
-    body: request.body.body,
-    userHandle: request.body.userHandle,
-    createdAt: admin.firestore.Timestamp.fromDate(new Date())
-  } 
-
-  db
-    .collection('screams')
-    .add(newScream)
-    .then(doc => response.json(`Document ${doc.id} created successfully`))
-    .catch(err => response.status(500).json({error: 'Something went wrong'}))
-});
-
-
-const isEmail = (email) => {
-  const regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
-  return email.match(regex)
-}
-
-const isEmpty = (string) => string.trim() === ''
 
 
 app.post('/signup', (request, response) => {
@@ -161,7 +199,7 @@ app.post('/login', (request, response) => {
 
   firebase.auth().signInWithEmailAndPassword(user.email, user.password)
     .then(data => data.user.getIdToken())
-    .then(token => response.json(token))
+    .then(token => response.json({token}))
     .catch(err => {
       console.log(err)
       return response.status(500).json({ error: err.code })
