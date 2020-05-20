@@ -88,6 +88,9 @@ exports.uploadImage = (request, response) => {
     let imageToBeUploaded = {}
 
     busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        if (mimetype !== 'image/jpeg' && mimetype !== 'image/png') {
+            return response.status(400).json({ error: 'Wrong file type submitted'})
+        }
         const extension = filename.split('.').pop()
         imageFilename = `${Math.round(Math.random() * 100000000)}.${extension}`
         const filepath = path.join(os.tmpdir(), imageFilename)
