@@ -5,7 +5,7 @@ const config = require('../util/config')
 firebase.initializeApp(config)
 
 
-const { validateSignup, validateLogin } = require('../util/validators')
+const { validateSignup, validateLogin, reduceUserDetails } = require('../util/validators')
 
 exports.signup = (request, response) => {
 
@@ -121,4 +121,16 @@ exports.uploadImage = (request, response) => {
     })
 
     busboy.end(request.rawBody)
+}
+
+exports.addUserDetails = (request, response) => {
+    let userDetails = reduceUserDetails(request.body)
+    db.doc(`/users/${request.user.handle}`).update(userDetails)
+        .then(() => {
+            return response.json({message: 'Details added succesfully'})
+        })
+        .catch(err => {
+            console.error(err)
+            return response.status(500).json({ error: err })
+        })
 }
