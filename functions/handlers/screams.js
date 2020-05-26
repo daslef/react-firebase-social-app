@@ -18,24 +18,50 @@ exports.getAllScreams = (request, response) => {
       .catch(err => console.log(err))
 }
 
-exports.postOneScream = (req, res) => {
-    if (req.body.body.trim() === '') {
-      return res.status(400).json({ body: 'Body must not be empty' });
+exports.postOneScream = (request, response) => {
+    if (request.body.body.trim() === '') {
+      return response.status(400).json({ body: 'Body must not be empty' });
     }
   
     const newScream = {
-      body: req.body.body,
-      userHandle: req.user.handle,
+      body: request.body.body,
+      userHandle: request.user.handle,
       createdAt: new Date().toISOString()
     };
   
     db.collection('screams')
       .add(newScream)
       .then((doc) => {
-        res.json({ message: `document ${doc.id} created successfully` });
+        response.json({ message: `document ${doc.id} created successfully` });
       })
       .catch((err) => {
-        res.status(500).json({ error: 'something went wrong' });
+        response.status(500).json({ error: 'something went wrong' });
         console.error(err);
       });
+}
+
+exports.getScream = (request, response) => {
+  let screamData = {}
+  db.doc(`/screams/${request.params.screamId}`)
+    .get()
+    .then(doc => {
+      if (!doc.exists) {
+        return response.status(404).json({error:  'Scream not found'})
+      }
+      screamData = doc.data()
+      screamData.screamId = doc.id
+      return db.collection('comments')
+                .orderBy('createdAt', 'desc')
+                .where('screamId', '==', request.params.screamId)
+                .get()
+    })
+    .then(data => {
+      screamData.comments = []
+      data.forEach(comment => screamData.comments.push(comment.data()))
+      return response.json(screamData)
+    })
+    .catch(err => {
+      console.log(err)
+      response.status(500).json({ error: err.code })
+    })
 }
